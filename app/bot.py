@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import re
 from typing import Any, Dict, Optional
 
 import httpx
@@ -38,9 +39,22 @@ async def generate_reply(prompt: str) -> str:
     return _extract_text(res)
 
 
+def _sanitize_reply(text: str) -> str:
+    if not text:
+        return ""
+    lines = []
+    for raw_line in text.splitlines():
+        line = re.sub(r"^\s*#+\s*", "", raw_line)
+        line = re.sub(r"(?<!\w)#([A-Za-z0-9_]+)", r"\1", line)
+        lines.append(line)
+    sanitized = "\n".join(lines).strip()
+    return sanitized
+
+
 async def send_message(client: httpx.AsyncClient, chat_id: int | str, text: str) -> None:
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    clean_text = _sanitize_reply(text)
+    payload = {"chat_id": chat_id, "text": clean_text, "parse_mode": "Markdown"}
     logger.info("Sending reply", extra={"chat_id": chat_id, "preview": text[:80]})
     await client.post(url, json=payload, timeout=20)
 
