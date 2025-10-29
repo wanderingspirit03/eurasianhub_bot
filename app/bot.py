@@ -1,0 +1,83 @@
+import os
+import asyncio
+from typing import Any, Dict, Optional
+
+import httpx
+
+from .agent_setup import agent, _initialize_knowledge_async
+
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+POLL_INTERVAL = float(os.getenv("TELEGRAM_POLL_INTERVAL", "2"))
+
+
+def _extract_text(resp: Any) -> str:
+    if isinstance(resp, str):
+        return resp
+    for key in ("content", "text", "output_text"):
+        if hasattr(resp, key):
+            val = getattr(resp, key)
+            if isinstance(val, str):
+                return val
+    try:
+        return str(resp)
+    except Exception:
+        return ""
+
+
+async def generate_reply(prompt: str) -> str:
+    try:
+        res = await agent.run_async(prompt)
+    except AttributeError:
+        res = agent.run(prompt)
+    return _extract_text(res)
+
+
+async def send_message(client: httpx.AsyncClient, chat_id: int | str, text: str) -> None:
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=20)
+
+
+async def handle_update(client: httpx.AsyncClient, update: Dict[str, Any]) -> Optional[int]:
+    msg = update.get("message") or update.get("edited_message")
+    if not msg:
+        return None
+    chat = msg.get("chat", {})
+    chat_id = chat.get("id")
+    text = msg.get("text")
+    if not chat_id or not text:
+        return None
+    reply = await generate_reply(text)
+    if reply:
+        await send_message(client, chat_id, reply)
+    return update.get("update_id")
+
+
+async def poll() -> None:
+    if not TELEGRAM_TOKEN:
+        raise RuntimeError("TELEGRAM_TOKEN is not set")
+    await _initialize_knowledge_async()
+    offset = None
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+                params: Dict[str, Any] = {"timeout": 20}
+                if offset is not None:
+                    params["offset"] = offset
+                r = await client.get(url, params=params, timeout=30)
+                data = r.json()
+                if data.get("ok") and data.get("result"):
+                    for upd in data["result"]:
+                        last_id = await handle_update(client, upd)
+                        if last_id is not None:
+                            offset = last_id + 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+            await asyncio.sleep(POLL_INTERVAL)
+
+
+if __name__ == "__main__":
+    asyncio.run(poll())

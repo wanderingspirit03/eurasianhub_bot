@@ -1,0 +1,35 @@
+services:
+  pgvector:
+    image: agnohq/pgvector:16
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-portfolio}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-portfolio}
+      POSTGRES_DB: ${DB_NAME:-portfolio}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      PORTFOLIO_DB_URL: postgresql+psycopg://${DB_USER:-portfolio}:${DB_PASSWORD:-portfolio}@pgvector:5432/${DB_NAME:-portfolio}
+      PORTFOLIO_AGENT_PORT: 8000
+      PORTFOLIO_AGENT_HOST: 0.0.0.0
+      RUN_MODE: hybrid
+    depends_on:
+      - pgvector
+    volumes:
+      - ./knowledge:/app/knowledge:ro
+      - storage_data:/app/storage
+
+volumes:
+  pgdata:
+  storage_data:
