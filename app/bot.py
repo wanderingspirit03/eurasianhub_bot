@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 from typing import Any, Dict, Optional
 
 import httpx
@@ -9,6 +10,10 @@ from .agent_setup import agent, _initialize_knowledge_async
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 POLL_INTERVAL = float(os.getenv("TELEGRAM_POLL_INTERVAL", "2"))
+LOG_LEVEL = os.getenv("TELEGRAM_LOG_LEVEL", "INFO").upper()
+
+logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
+logger = logging.getLogger("telegram.bot")
 
 
 def _extract_text(resp: Any) -> str:
@@ -35,7 +40,9 @@ async def generate_reply(prompt: str) -> str:
 
 async def send_message(client: httpx.AsyncClient, chat_id: int | str, text: str) -> None:
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=20)
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    logger.info("Sending reply", extra={"chat_id": chat_id, "preview": text[:80]})
+    await client.post(url, json=payload, timeout=20)
 
 
 async def handle_update(client: httpx.AsyncClient, update: Dict[str, Any]) -> Optional[int]:
@@ -47,6 +54,7 @@ async def handle_update(client: httpx.AsyncClient, update: Dict[str, Any]) -> Op
     text = msg.get("text")
     if not chat_id or not text:
         return None
+    logger.info("Received message", extra={"chat_id": chat_id, "text": text})
     reply = await generate_reply(text)
     if reply:
         await send_message(client, chat_id, reply)
@@ -68,6 +76,7 @@ async def poll() -> None:
                 r = await client.get(url, params=params, timeout=30)
                 data = r.json()
                 if data.get("ok") and data.get("result"):
+                    logger.info("Processing updates", extra={"count": len(data["result"])})
                     for upd in data["result"]:
                         last_id = await handle_update(client, upd)
                         if last_id is not None:
@@ -75,7 +84,7 @@ async def poll() -> None:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                pass
+                logger.exception("Polling loop error")
             await asyncio.sleep(POLL_INTERVAL)
 
 
