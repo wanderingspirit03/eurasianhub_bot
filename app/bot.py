@@ -31,11 +31,25 @@ def _extract_text(resp: Any) -> str:
         return ""
 
 
-async def generate_reply(prompt: str) -> str:
-    try:
-        res = await agent.run_async(prompt)
-    except AttributeError:
-        res = agent.run(prompt)
+async def generate_reply(prompt: str, *, user_id: str, session_id: str) -> str:
+    # Use async API if available; otherwise run sync call in a thread
+    run_async = getattr(agent, "run_async", None)
+    if callable(run_async):
+        res = await run_async(
+            prompt,
+            user_id=user_id,
+            session_id=session_id,
+            metadata={"channel": "telegram", "chat_id": user_id},
+        )
+    else:
+        # Avoid blocking the event loop by offloading to a thread
+        res = await asyncio.to_thread(
+            agent.run,
+            prompt,
+            user_id=user_id,
+            session_id=session_id,
+            metadata={"channel": "telegram", "chat_id": user_id},
+        )
     return _extract_text(res)
 
 
@@ -69,7 +83,9 @@ async def handle_update(client: httpx.AsyncClient, update: Dict[str, Any]) -> Op
     if not chat_id or not text:
         return None
     logger.info("Received message", extra={"chat_id": chat_id, "text": text})
-    reply = await generate_reply(text)
+    # Use chat_id to isolate sessions and history per Telegram chat
+    user_key = str(chat_id)
+    reply = await generate_reply(text, user_id=user_key, session_id=user_key)
     if reply:
         await send_message(client, chat_id, reply)
     return update.get("update_id")
@@ -80,6 +96,9 @@ async def poll() -> None:
         raise RuntimeError("TELEGRAM_TOKEN is not set")
     await _initialize_knowledge_async()
     offset = None
+    max_concurrency = int(os.getenv("TELEGRAM_MAX_CONCURRENCY", "8"))
+    sem = asyncio.Semaphore(max_concurrency)
+
     async with httpx.AsyncClient() as client:
         while True:
             try:
@@ -89,12 +108,25 @@ async def poll() -> None:
                     params["offset"] = offset
                 r = await client.get(url, params=params, timeout=30)
                 data = r.json()
-                if data.get("ok") and data.get("result"):
-                    logger.info("Processing updates", extra={"count": len(data["result"])})
-                    for upd in data["result"]:
-                        last_id = await handle_update(client, upd)
-                        if last_id is not None:
-                            offset = last_id + 1
+                updates = data.get("result") or []
+                if data.get("ok") and updates:
+                    logger.info("Processing updates", extra={"count": len(updates)})
+
+                    async def _run_one(upd: Dict[str, Any]) -> Optional[int]:
+                        async with sem:
+                            return await handle_update(client, upd)
+
+                    tasks = [asyncio.create_task(_run_one(upd)) for upd in updates]
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    processed_ids: list[int] = []
+                    for res in results:
+                        if isinstance(res, Exception):
+                            logger.exception("Handler error", exc_info=res)
+                            continue
+                        if res is not None:
+                            processed_ids.append(int(res))
+                    if processed_ids:
+                        offset = max(processed_ids) + 1
             except asyncio.CancelledError:
                 raise
             except Exception:
