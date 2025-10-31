@@ -12,7 +12,7 @@
 - Audience: developers, data scientists, PMs, students, and builders.
 - Team size: 1–3 people.
 
-## Schedule (Nov 1)
+## Schedule (Nov 1, all times London GMT)
 - 08:30 — Registration & breakfast
 - 09:30 — Kickoff & team formation
 - 10:00 — Hacking begins
@@ -23,6 +23,19 @@
 - 19:00 — Project demos & judging
 - 20:00 — Awards & drinks
 - 21:00 — Event ends
+
+## What To Bring
+- Laptop, charger, and any adapters; optional headphones.
+- Your API keys and `.env` ready (avoid last‑minute setup).
+- A short pitch outline (problem → solution → demo plan).
+
+## How To Submit
+- Use the Submission form above before 18:00.
+- Include: demo video link (1–2 min), brief description, tech stack, repo or Lovable link, and any deployed URL.
+
+## Judging At A Glance
+- 3 min live pitch + demo, followed by brief Q&A.
+- Scored on innovation, technical depth, UX, and clarity of presentation.
 
 ## Perks & Prizes
 - Lovable: 100 credits for all; bonus credits for top 3 teams.

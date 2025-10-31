@@ -22,6 +22,8 @@ print(resp.choices[0].message.content)
 ```
 
 ## Tips
+- Plain English: pick a small, fast model for demos; upgrade if you need better reasoning or vision.
 - Keep prompts focused; cache repeated calls to save tokens.
-- For retrieval-augmented generation, use text-embedding-3-small/large and store vectors (e.g., LanceDB).
+- For RAG, use `text-embedding-3-small/large` and store vectors (e.g., LanceDB).
 - Use structured output (JSON mode) for scoring, judging rubrics, or evaluation pipelines.
+- Troubleshooting: `401` usually means a bad or missing `OPENAI_API_KEY`.

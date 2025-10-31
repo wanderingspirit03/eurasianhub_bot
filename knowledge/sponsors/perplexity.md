@@ -1,37 +1,89 @@
-# Perplexity API
+# Perplexity Chat Completions
 
 ## Key Links
-- Quickstart: https://docs.perplexity.ai/getting-started/quickstart
-- Chat Completions reference: https://docs.perplexity.ai/api-reference/chat-completions
+- Chat Completions: https://docs.perplexity.ai/api-reference/chat-completions-post
+- SDK guide: https://docs.perplexity.ai/guides/chat-completions-sdk
+- Models (Sonar family): https://docs.perplexity.ai/getting-started/models/
 - API keys & groups: https://www.perplexity.ai/account/api/keys
 
-## Hackathon Perk
-- Credits applied to API Groups; each participant or team lead must create a Group and key.
+## Essentials
+- Base URL: `https://api.perplexity.ai`
+- Endpoint: `POST /chat/completions`
+- Auth: `Authorization: Bearer $PERPLEXITY_API_KEY`
+- Models: `sonar`, `sonar-pro`, `sonar-deep-research`, `sonar-reasoning`, `sonar-reasoning-pro`
 
-## Setup Checklist
-1. Create account: https://www.perplexity.ai/
-2. Create an API Group and generate a key (UI linked above).
-3. Set `PERPLEXITY_API_KEY` in your environment.
+## Core Params
+- `messages`: OpenAI-compatible array of `{role, content}` (string or content parts).
+- Sampling: `temperature` (default 0.2), `top_p`.
+- Length: `max_tokens`.
+- Streaming: `stream: true` returns `text/event-stream` chunks.
+- Search control: `search_mode` (`web|academic|sec`), `search_domain_filter`, `disable_search`, `enable_search_classifier`, `web_search_options.search_context_size` (`low|medium|high`).
+- Media: `return_images`, `media_response.overrides.{return_videos,return_images}`.
+- Deep research only: `reasoning_effort` = `low|medium|high` (impacts reasoning token usage).
 
-## Quickstart (Python)
+## Quickstart (curl)
+```bash
+curl -sS https://api.perplexity.ai/chat/completions \
+  -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "sonar",
+    "messages": [
+      {"role": "system", "content": "Be precise and concise."},
+      {"role": "user", "content": "Top 3 sights in London this weekend?"}
+    ],
+    "search_mode": "web",
+    "max_tokens": 300
+  }'
+```
+
+## Streaming (curl)
+```bash
+curl -N https://api.perplexity.ai/chat/completions \
+  -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "sonar-reasoning",
+    "messages": [{"role": "user", "content": "Summarize latest AI news."}],
+    "stream": true
+  }'
+```
+
+## Python (requests)
 ```python
-import os
-import requests
+import os, requests
 
-resp = requests.post(
+payload = {
+    "model": "sonar-deep-research",
+    "messages": [
+        {"role": "system", "content": "Be precise and concise."},
+        {"role": "user", "content": "Compare SEC climate disclosure rules vs EU CSRD."}
+    ],
+    "reasoning_effort": "low",
+    "search_mode": "sec",
+}
+
+r = requests.post(
     "https://api.perplexity.ai/chat/completions",
     headers={
         "Authorization": f"Bearer {os.environ['PERPLEXITY_API_KEY']}",
         "Content-Type": "application/json",
     },
-    json={
-        "model": "llama-3.1-sonar-small-128k-online",
-        "messages": [{"role": "user", "content": "Hello!"}],
-    },
+    json=payload,
+    timeout=60,
 )
-print(resp.json())
+print(r.json()["choices"][0]["message"]["content"])  # basic parse
 ```
 
-## Notes
-- API is OpenAI-compatible; swap base URL and model name to migrate existing clients.
-- Supports "online" models with live web-retrieval; use for research-heavy hacks.
+## Async (Deep Research only)
+- Endpoint: `POST /async/chat/completions` with `model: "sonar-deep-research"`.
+- Poll: `GET /async/chat/completions/{request_id}`. Useful for long research tasks.
+
+## Tips
+- OpenAI-compatible: schema and fields align; swap base URL and model name.
+- Use `search_domain_filter` allow/deny lists to steer sources.
+- Prefer `web_search_options.search_context_size: medium` for balanced cost vs context.
+
+## Plain English
+- Perplexity can browse the web; choose `sonar-deep-research` for deeper, slower research or `sonar/sonar-pro` for quick answers.
+- If you see `401`, confirm `PERPLEXITY_API_KEY` and the right API Group are set.

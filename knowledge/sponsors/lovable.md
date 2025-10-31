@@ -25,3 +25,7 @@
 - Reuse community templates to accelerate prototypes.
 - Keep prompts precise (data models, user flows); follow the CLEAR prompting pattern.
 - Leverage built-in auth and CRUD scaffolding to save time during the hack.
+
+## Plain English
+- Tell it what to build (“a simple waitlist with email signup and admin view”), then refine.
+- If stuck, ask for “show me the files you changed” or “add unit tests for X”.

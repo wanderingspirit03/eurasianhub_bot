@@ -15,3 +15,7 @@
 - Sync project updates or submissions into a Notion database.
 - Automate status dashboards for mentors/judges.
 - Combine with embeddings/RAG for Q&A on project docs after the event.
+
+## Plain English
+- Use Notion as your team wiki: one page for plan, one for tasks, one for demo links.
+- New to Notion? Start from a Kanban template and add a database later if needed.
