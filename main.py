@@ -34,7 +34,8 @@ async def run_hybrid() -> None:
 
 
 async def main() -> None:
-    mode = os.getenv("RUN_MODE", "hybrid").lower()
+    # Since we use the agent only within Telegram, default to bot mode.
+    mode = os.getenv("RUN_MODE", "bot").lower()
     if mode == "web":
         await run_web()
     elif mode == "bot":
