@@ -4,7 +4,6 @@
 - Registration form (teams): https://forms.gle/CZQ2Bay9Ts7EpmXJ9 — deadline Nov 1, 10:00 AM
 - Submission form: https://forms.gle/v6dQruxGMdRp2FGj7 — deadline Nov 1, 6:00 PM
 - Venue: 7th Floor, Ilona House, Dawn Capital Office — https://maps.app.goo.gl/dv5MWjFPoZmVrSyFA
-- Telegram group: https://t.me/+2T1WFDaBuHs5NjU8
 - Venue T&Cs: https://docs.google.com/document/d/1oGeWWjSMsa1c-sby-hLnfb2nT0vqAHoWP1DyiS7c2hQ/edit?usp=sharing
 
 ## Event Overview
