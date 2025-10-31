@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 from agno.tools.telegram import TelegramTools
+import html
 
 from .agent_setup import agent, _initialize_knowledge_async
 
@@ -64,19 +65,30 @@ def _sanitize_reply(text: str) -> str:
     return sanitized
 
 
-def _convert_bold_double_to_single(text: str) -> str:
-    """Convert **bold** to *bold* for Telegram Markdown compatibility.
+def _to_simple_html(text: str) -> str:
+    """Convert lightweight markdown to simple, safe HTML for Telegram.
 
-    This is intentionally conservative (no cross-line matches).
+    - Escapes HTML by default
+    - `code` -> <code>code</code>
+    - **bold** -> <b>bold</b>
+    - [label](https://url) -> <a href="https://url">label</a>
     """
-    return re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"*\1*", text)
+    t = html.escape(text, quote=True)
+
+    # Inline code first to avoid formatting inside code
+    t = re.sub(r"`([^`\n]+)`", lambda m: f"<code>{m.group(1)}</code>", t)
+    # Bold
+    t = re.sub(r"\*\*([^\n*][^*]*?)\*\*", lambda m: f"<b>{m.group(1)}</b>", t)
+    # Links
+    t = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", lambda m: f"<a href=\"{m.group(2)}\">{m.group(1)}</a>", t)
+    return t
 
 
 async def send_message(client: httpx.AsyncClient, chat_id: int | str, text: str) -> None:
-    # Use official Agno TelegramTools transport, but set parse_mode explicitly.
+    # Use official Agno TelegramTools transport, formatted as simple HTML.
     clean_text = _sanitize_reply(text)
-    md_text = _convert_bold_double_to_single(clean_text)
-    logger.info("Sending reply", extra={"chat_id": chat_id, "preview": md_text[:80]})
+    html_text = _to_simple_html(clean_text)
+    logger.info("Sending reply", extra={"chat_id": chat_id, "preview": clean_text[:80]})
     tool = TelegramTools(token=TELEGRAM_TOKEN, chat_id=chat_id)
 
     async def _post(msg: str, parse_mode: str | None):
@@ -89,8 +101,8 @@ async def send_message(client: httpx.AsyncClient, chat_id: int | str, text: str)
         # Use the toolkit's HTTP wrapper
         return await asyncio.to_thread(tool._call_post_method, "sendMessage", json=payload)
 
-    # Try Markdown first so *bold* renders; on 400 fall back to plain text
-    resp = await _post(md_text, "Markdown")
+    # Try HTML first so <b>bold</b> renders; on 400 fall back to plain text
+    resp = await _post(html_text, "HTML")
     if resp.status_code == 200:
         return
     # Fallback without parse_mode
