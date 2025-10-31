@@ -64,13 +64,37 @@ def _sanitize_reply(text: str) -> str:
     return sanitized
 
 
+def _convert_bold_double_to_single(text: str) -> str:
+    """Convert **bold** to *bold* for Telegram Markdown compatibility.
+
+    This is intentionally conservative (no cross-line matches).
+    """
+    return re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"*\1*", text)
+
+
 async def send_message(client: httpx.AsyncClient, chat_id: int | str, text: str) -> None:
-    # Use official Agno TelegramTools to send messages
+    # Use official Agno TelegramTools transport, but set parse_mode explicitly.
     clean_text = _sanitize_reply(text)
-    logger.info("Sending reply", extra={"chat_id": chat_id, "preview": clean_text[:80]})
+    md_text = _convert_bold_double_to_single(clean_text)
+    logger.info("Sending reply", extra={"chat_id": chat_id, "preview": md_text[:80]})
     tool = TelegramTools(token=TELEGRAM_TOKEN, chat_id=chat_id)
-    # send_message is sync; offload to a thread to avoid blocking the loop
-    await asyncio.to_thread(tool.send_message, clean_text)
+
+    async def _post(msg: str, parse_mode: str | None):
+        payload = {
+            "chat_id": chat_id,
+            "text": msg,
+            **({"parse_mode": parse_mode} if parse_mode else {}),
+            "disable_web_page_preview": True,
+        }
+        # Use the toolkit's HTTP wrapper
+        return await asyncio.to_thread(tool._call_post_method, "sendMessage", json=payload)
+
+    # Try Markdown first so *bold* renders; on 400 fall back to plain text
+    resp = await _post(md_text, "Markdown")
+    if resp.status_code == 200:
+        return
+    # Fallback without parse_mode
+    await _post(clean_text, None)
 
 
 async def handle_update(client: httpx.AsyncClient, update: Dict[str, Any]) -> Optional[int]:
