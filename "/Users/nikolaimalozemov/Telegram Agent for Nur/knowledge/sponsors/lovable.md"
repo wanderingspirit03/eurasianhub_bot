@@ -1,0 +1,18 @@
+# Lovable
+
+Links:
+- Website: https://lovable.dev/
+- Docs: https://docs.lovable.dev/
+
+Perk (from event page): everyone gets 100 credits; extra credits for top 3 teams.
+
+What it is: AI app builder that turns natural‑language prompts into real, editable full‑stack apps. Supports full cloud integration, visual edits, and integrations.
+
+Key docs to start:
+- Prompting guide: https://docs.lovable.dev/prompting/prompting-one
+- Features/AI overview: https://docs.lovable.dev/features/ai
+- Integrations intro: https://docs.lovable.dev/integrations/introduction
+
+Tips for hackathon:
+- Start by describing your app and iterate in Chat/Agent mode.
+- Export code if you need custom backend or deploy flows.

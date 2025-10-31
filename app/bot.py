@@ -5,6 +5,7 @@ import re
 from typing import Any, Dict, Optional
 
 import httpx
+from agno.tools.telegram import TelegramTools
 
 from .agent_setup import agent, _initialize_knowledge_async
 
@@ -52,11 +53,12 @@ def _sanitize_reply(text: str) -> str:
 
 
 async def send_message(client: httpx.AsyncClient, chat_id: int | str, text: str) -> None:
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    # Use official Agno TelegramTools to send messages
     clean_text = _sanitize_reply(text)
-    payload = {"chat_id": chat_id, "text": clean_text, "parse_mode": "Markdown"}
-    logger.info("Sending reply", extra={"chat_id": chat_id, "preview": text[:80]})
-    await client.post(url, json=payload, timeout=20)
+    logger.info("Sending reply", extra={"chat_id": chat_id, "preview": clean_text[:80]})
+    tool = TelegramTools(token=TELEGRAM_TOKEN, chat_id=chat_id)
+    # send_message is sync; offload to a thread to avoid blocking the loop
+    await asyncio.to_thread(tool.send_message, clean_text)
 
 
 async def handle_update(client: httpx.AsyncClient, update: Dict[str, Any]) -> Optional[int]:
